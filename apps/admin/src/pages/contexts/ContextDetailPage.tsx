@@ -26,8 +26,8 @@ import {
   closeOnlineCheckin,
   buildOnlineUrl,
 } from '../../lib/api/onlineCheckin'
+import { getOrOpenOccurrence, closeCurrentOccurrence, listOccurrences, type ContextOccurrence } from '../../lib/api/occurrences'
 import OpenContextModal from './OpenContextModal'
-import { getOrOpenOccurrence, closeCurrentOccurrence } from '../../lib/api/occurrences'
 
 function StatusBadge({ status }: { status: ContextStatus }) {
   const styles: Record<ContextStatus, string> = {
@@ -81,7 +81,6 @@ function FaceBadge({ record }: { record: PresenceWithParticipant }) {
       </span>
     )
   }
-
   if (record.face_match_result === 'no_match') {
     if (record.face_review_status === 'approved') {
       return (
@@ -103,38 +102,7 @@ function FaceBadge({ record }: { record: PresenceWithParticipant }) {
       </span>
     )
   }
-
   if (record.face_match_result === 'not_attempted') {
-    if (record.face_attempt_reason === 'no_enrollment') {
-      return (
-        <span
-          className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
-          title="Participant has no enrolled face"
-        >
-          Not enrolled
-        </span>
-      )
-    }
-    if (record.face_attempt_reason === 'no_face_detected') {
-      return (
-        <span
-          className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-          title="Participant is enrolled, but no face was detected in the scan"
-        >
-          No face
-        </span>
-      )
-    }
-    if (record.face_attempt_reason === 'rpc_error') {
-      return (
-        <span
-          className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-          title="Face verification encountered an error"
-        >
-          Error
-        </span>
-      )
-    }
     return (
       <span
         className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
@@ -144,7 +112,6 @@ function FaceBadge({ record }: { record: PresenceWithParticipant }) {
       </span>
     )
   }
-
   return null
 }
 
@@ -185,7 +152,9 @@ export default function ContextDetailPage() {
 
   const [context, setContext] = useState<ContextWithProgram | null>(null)
   const [attendance, setAttendance] = useState<PresenceWithParticipant[]>([])
+  const [occurrences, setOccurrences] = useState<ContextOccurrence[]>([])
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
+  
   const [loading, setLoading] = useState(true)
   const [attendanceLoading, setAttendanceLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -210,9 +179,15 @@ export default function ContextDetailPage() {
   const loadAttendance = useCallback(async () => {
     if (!id) return
     setAttendanceLoading(true)
-    const { data } = await listPresenceForContext(id, { limit: 500 })
+    const { data } = await listPresenceForContext(id, { limit: 1000 })
     setAttendance(data)
     setAttendanceLoading(false)
+  }, [id])
+
+  const loadOccurrences = useCallback(async () => {
+    if (!id) return
+    const { data } = await listOccurrences(id)
+    setOccurrences(data)
   }, [id])
 
   const loadKiosks = useCallback(async () => {
@@ -224,16 +199,18 @@ export default function ContextDetailPage() {
   useEffect(() => {
     loadContext()
     loadAttendance()
+    loadOccurrences()
     loadKiosks()
-  }, [loadContext, loadAttendance, loadKiosks])
+  }, [loadContext, loadAttendance, loadOccurrences, loadKiosks])
 
   useEffect(() => {
     if (!context || context.status !== 'open') return
     const iv = setInterval(() => {
       loadAttendance()
+      loadOccurrences()
     }, 5000)
     return () => clearInterval(iv)
-  }, [context, loadAttendance])
+  }, [context, loadAttendance, loadOccurrences])
 
   async function handleSwitchPhase() {
     if (!context) return
@@ -273,6 +250,7 @@ export default function ContextDetailPage() {
     }
     loadContext()
     loadAttendance()
+    loadOccurrences()
   }
 
   async function handleDelete() {
@@ -418,7 +396,7 @@ export default function ContextDetailPage() {
     return (
       <div className="p-6">
         <div className="mx-auto max-w-5xl">
-        <div className="rounded bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+          <div className="rounded bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
             {error ?? 'Not found'}
           </div>
           <Link
@@ -439,17 +417,41 @@ export default function ContextDetailPage() {
       r.face_review_status !== 'pending'
   )
 
+  const currentOccurrence = occurrences.find((o) => o.closed_at === null)
+  const currentOccurrenceId = currentOccurrence?.id
+
+  // Filter live table to only show current occurrence (or unlinked legacy records if not recurring)
+  const liveAttendance = context?.is_recurring
+    ? attendance.filter((r) => r.occurrence_id === currentOccurrenceId)
+    : attendance
+
+  // Build past summary
+  const pastOccurrences = occurrences.filter((o) => o.id !== currentOccurrenceId)
+  const summaryParticipants = new Map<string, { name: string; records: Record<string, PresenceWithParticipant> }>()
+  
+  if (context?.is_recurring) {
+    for (const rec of attendance) {
+      if (!rec.participant || !rec.occurrence_id) continue
+      if (rec.occurrence_id === currentOccurrenceId) continue // Only past
+
+      if (!summaryParticipants.has(rec.participant.id)) {
+        summaryParticipants.set(rec.participant.id, { name: rec.participant.full_name, records: {} })
+      }
+      summaryParticipants.get(rec.participant.id)!.records[rec.occurrence_id] = rec
+    }
+  }
+
   const facePending = attendance.filter(
     (r) => r.face_review_status === 'pending'
   )
 
-  const presentCount = attendance.filter((r) => r.status === 'present').length
-  const absentCount = attendance.filter((r) => r.status === 'absent').length
-  const checkedOutCount = attendance.filter(
+  const presentCount = liveAttendance.filter((r) => r.status === 'present').length
+  const absentCount = liveAttendance.filter((r) => r.status === 'absent').length
+  const checkedOutCount = liveAttendance.filter(
     (r) => r.checked_out_at !== null && r.status === 'present'
   ).length
-  const onlineCount = attendance.filter((r) => r.mode === 'online').length
-  const inPersonCount = attendance.filter((r) => r.mode === 'in_person').length
+  const onlineCount = liveAttendance.filter((r) => r.mode === 'online').length
+  const inPersonCount = liveAttendance.filter((r) => r.mode === 'in_person').length
 
   const onlineIsLive =
     context.status === 'open' &&
@@ -461,7 +463,6 @@ export default function ContextDetailPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mx-auto max-w-5xl">
-        <img src="/logo.png" alt="Quickie Pinkas" className="h-8 w-auto mb-4" />
         <Link to="/contexts" className="text-xs text-slate-500 hover:underline">
           &lt;- Back to {preset.labels.contexts}
         </Link>
@@ -731,17 +732,12 @@ export default function ContextDetailPage() {
                           Checked in {formatTime(r.checked_in_at)}
                         </div>
                         <div className="text-xs text-amber-700 mt-1">
-                          {r.face_attempt_reason === 'no_face_detected' ? (
-                            'No face detected in selfie'
-                          ) : r.face_attempt_reason === 'no_enrollment' ? (
-                            'Not enrolled'
-                          ) : r.face_score !== null ? (
-                            'Score: ' +
-                            Math.round(r.face_score * 100) +
-                            '% (need >= 45% for match)'
-                          ) : (
-                            'No score'
-                          )}
+                          Score:{' '}
+                          {r.face_score !== null
+                            ? Math.round(r.face_score * 100) + '%'
+                            : 'unknown'}
+                          {' '}
+                          (need &gt;= 45% for match)
                         </div>
                       </div>
                     </div>
@@ -835,9 +831,54 @@ export default function ContextDetailPage() {
             </dl>
           </div>
 
-          <div className="rounded-lg bg-white p-5 shadow lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-slate-900">Attendance</h2>
+          <div className="rounded-lg bg-white p-5 shadow lg:col-span-2 flex flex-col gap-6">
+            
+            {/* Past Occurrences Summary */}
+            {context?.is_recurring && pastOccurrences.length > 0 && (
+              <div>
+                <h2 className="text-sm font-medium text-slate-900 mb-3">Past Occurrences Summary</h2>
+                <div className="overflow-x-auto border border-slate-200 rounded-md">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2 font-medium sticky left-0 bg-slate-50 z-10 border-r border-slate-200 min-w-[120px]">Student</th>
+                        {pastOccurrences.map((o) => (
+                          <th key={o.id} className="px-3 py-2 font-medium text-center border-r border-slate-100 min-w-[80px]">
+                            <div>Week {o.session_number}</div>
+                            <div className="text-slate-400 font-normal">{new Date(o.opened_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+                          </th>
+                        ))}
+                        <th className="px-3 py-2 font-medium text-center bg-slate-100">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {Array.from(summaryParticipants.values()).map((p) => {
+                        let attended = 0
+                        return (
+                          <tr key={p.name} className="hover:bg-slate-50">
+                            <td className="px-3 py-2 text-slate-900 sticky left-0 bg-white border-r border-slate-200 font-medium">{p.name}</td>
+                            {pastOccurrences.map((o) => {
+                              const rec = p.records[o.id]
+                              if (rec && rec.status === 'present') {
+                                attended++
+                                return <td key={o.id} className="px-3 py-2 text-center border-r border-slate-100"><span className="text-emerald-600 font-medium">Present</span></td>
+                              }
+                              return <td key={o.id} className="px-3 py-2 text-center border-r border-slate-100 text-slate-300">-</td>
+                            })}
+                            <td className="px-3 py-2 text-center bg-slate-50 font-medium text-slate-900">{attended} / {pastOccurrences.length}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+              <h2 className="text-sm font-medium text-slate-900">
+                {context?.is_recurring && currentOccurrence ? `Live Attendance (Occurrence ${currentOccurrence.session_number})` : 'Attendance'}
+              </h2>
               <div className="flex items-center gap-3">
                 {context.status === 'open' && (
                   <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
@@ -864,11 +905,11 @@ export default function ContextDetailPage() {
             </p>
 
             <div className="mt-4 max-h-96 overflow-y-auto">
-              {attendanceLoading && attendance.length === 0 ? (
+              {attendanceLoading && liveAttendance.length === 0 ? (
                 <div className="py-6 text-center text-sm text-slate-500">
                   Loading...
                 </div>
-              ) : attendance.length === 0 ? (
+              ) : liveAttendance.length === 0 ? (
                 <div className="rounded border border-dashed border-slate-300 p-6 text-center">
                   <p className="text-sm text-slate-500">No check-ins yet.</p>
                   {context.status === 'open' && (
@@ -889,7 +930,7 @@ export default function ContextDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {attendance.map((r) => (
+                    {liveAttendance.map((r) => (
                       <tr
                         key={r.id}
                         className={r.status === 'absent' ? 'opacity-50' : ''}
@@ -913,12 +954,11 @@ export default function ContextDetailPage() {
                                 Absent
                               </span>
                             )}
-                            {r.needs_review &&
-                              r.face_review_status !== 'pending' && (
-                                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                                  Review
-                                </span>
-                              )}
+                            {r.needs_review && r.face_review_status !== 'pending' && (
+                              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                                Review
+                              </span>
+                            )}
                             {r.mode === 'online' && (
                               <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
                                 Online
@@ -1021,6 +1061,7 @@ export default function ContextDetailPage() {
           loadContext()
           loadKiosks()
           loadAttendance()
+          loadOccurrences()
         }}
       />
     </div>

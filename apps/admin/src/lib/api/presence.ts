@@ -24,6 +24,7 @@ export interface PresenceRecord {
   account_id: string
   participant_id: string
   context_id: string
+  occurrence_id: string | null
   kiosk_id: string | null
   checked_in_at: string
   checked_out_at: string | null
