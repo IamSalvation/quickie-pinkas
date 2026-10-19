@@ -86,7 +86,7 @@ export interface ListContextsOptions {
 }
 
 export interface ContextWithProgram extends ContextRow {
-  program: { id: string; name: string; code: string | null } | null
+  program: { id: string; name: string; code: string | null; group_id: string | null } | null
 }
 
 export async function listContexts(

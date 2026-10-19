@@ -28,6 +28,7 @@ import {
 } from '../../lib/api/onlineCheckin'
 import { getOrOpenOccurrence, closeCurrentOccurrence, listOccurrences, type ContextOccurrence } from '../../lib/api/occurrences'
 import OpenContextModal from './OpenContextModal'
+import ManualAttendanceModal from './ManualAttendanceModal'
 
 function StatusBadge({ status }: { status: ContextStatus }) {
   const styles: Record<ContextStatus, string> = {
@@ -154,6 +155,7 @@ export default function ContextDetailPage() {
   const [attendance, setAttendance] = useState<PresenceWithParticipant[]>([])
   const [occurrences, setOccurrences] = useState<ContextOccurrence[]>([])
   const [viewingOccurrenceId, setViewingOccurrenceId] = useState<string | null>(null)
+  const [manualAddOccurrence, setManualAddOccurrence] = useState<ContextOccurrence | null>(null)
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   
   const [loading, setLoading] = useState(true)
@@ -987,6 +989,14 @@ export default function ContextDetailPage() {
 
                         {isOpen && (
                           <div className="border-t border-slate-100 bg-slate-50/50 p-4">
+                            <div className="flex justify-end mb-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setManualAddOccurrence(o); }}
+                                className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                              >
+                                + Add Student
+                              </button>
+                            </div>
                             {occAttendance.length === 0 ? (
                               <p className="text-sm text-slate-500 py-2 text-center">No check-ins for this week.</p>
                             ) : (
@@ -1085,6 +1095,17 @@ export default function ContextDetailPage() {
           </button>
         </div>
       </div>
+
+      {manualAddOccurrence && (
+        <ManualAttendanceModal
+          open={!!manualAddOccurrence}
+          onClose={() => setManualAddOccurrence(null)}
+          onSaved={() => { loadAttendance(); loadOccurrences(); }}
+          context={context}
+          occurrence={manualAddOccurrence}
+          existingParticipantIds={attendance.filter(r => r.occurrence_id === manualAddOccurrence.id && r.status === 'present').map(r => r.participant_id)}
+        />
+      )}
 
       <OpenContextModal
         open={showOpenModal}

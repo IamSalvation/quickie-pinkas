@@ -246,3 +246,32 @@ export async function rejectFaceCheckin(
   if (!result.ok) return { error: result.message ?? 'Could not reject' }
   return { error: null }
 }
+
+export async function addManualAttendance(
+  accountId: string,
+  participantId: string,
+  contextId: string,
+  occurrenceId: string,
+  operatorId: string,
+  reason: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('presence_records')
+    .insert({
+      account_id: accountId,
+      participant_id: participantId,
+      context_id: contextId,
+      occurrence_id: occurrenceId,
+      method: 'manual',
+      mode: 'in_person',
+      status: 'present',
+      checked_in_at: new Date().toISOString(),
+      verified: true,
+      manually_added: true,
+      added_by: operatorId,
+      added_reason: reason,
+    })
+
+  if (error) return { error: error.message }
+  return { error: null }
+}
