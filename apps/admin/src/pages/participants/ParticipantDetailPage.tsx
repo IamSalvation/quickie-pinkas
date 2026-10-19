@@ -91,6 +91,9 @@ export default function ParticipantDetailPage() {
     loadGroupAndOptions()
   }
 
+  useEffect(() => {
+    loadGroupAndOptions()
+  }, [loadGroupAndOptions])
   const loadFaceInfo = useCallback(async () => {
     if (!id) return
     const { data } = await supabase
