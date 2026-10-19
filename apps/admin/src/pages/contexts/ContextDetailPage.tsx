@@ -427,9 +427,9 @@ export default function ContextDetailPage() {
   const currentOccurrenceId = viewingOccurrenceId || defaultOccurrence?.id
   const currentOccurrence = occurrences.find((o) => o.id === currentOccurrenceId)
 
-  // Filter live table to only show the target occurrence
+  // Live table is ONLY for the active/current occurrence. It ignores the clicked summary week.
   const liveAttendance = context?.is_recurring
-    ? attendance.filter((r) => r.occurrence_id === currentOccurrenceId)
+    ? attendance.filter((r) => r.occurrence_id === (activeOccurrence?.id || mostRecentOccurrence?.id))
     : attendance
 
   // Build a map of every participant who has ANY record, and their records per occurrence
@@ -958,7 +958,7 @@ export default function ContextDetailPage() {
             {context?.is_recurring && occurrences.length > 0 && (
               <div className="border-t border-slate-100 pt-4 mt-2">
                 <h2 className="text-sm font-medium text-slate-900 mb-3">All Occurrences Summary</h2>
-                <p className="text-xs text-slate-500 mb-2">Click a week to view its live attendance above.</p>
+                <p className="text-xs text-slate-500 mb-2">Click a week to view its detailed check-ins below.</p>
                 <div className="overflow-x-auto border border-slate-200 rounded-md">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
@@ -968,7 +968,7 @@ export default function ContextDetailPage() {
                           <th key={o.id} className="p-0 border-r border-slate-100 min-w-[80px]">
                             <button
                               onClick={() => setViewingOccurrenceId(o.id)}
-                              className={`w-full px-3 py-2 text-center transition-colors ${o.id === currentOccurrenceId ? 'bg-emerald-50 text-emerald-900' : 'hover:bg-slate-100 text-slate-600'}`}
+                              className={`w-full px-3 py-2 text-center transition-colors ${o.id === viewingOccurrenceId ? 'bg-blue-50 text-blue-900 border-b-2 border-blue-500' : 'hover:bg-slate-100 text-slate-600'}`}
                             >
                               <div>Week {o.session_number}</div>
                               <div className="text-slate-400 font-normal">{new Date(o.opened_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
@@ -989,12 +989,12 @@ export default function ContextDetailPage() {
                               if (rec && rec.status === 'present') {
                                 attended++
                                 return (
-                                  <td key={o.id} className={`px-3 py-2 text-center border-r border-slate-100 ${o.id === currentOccurrenceId ? 'bg-emerald-50/30' : ''}`}>
+                                  <td key={o.id} className={`px-3 py-2 text-center border-r border-slate-100 ${o.id === viewingOccurrenceId ? 'bg-blue-50/30' : ''}`}>
                                     <span className="text-emerald-600 font-medium">Present</span>
                                   </td>
                                 )
                               }
-                              return <td key={o.id} className={`px-3 py-2 text-center border-r border-slate-100 text-slate-300 ${o.id === currentOccurrenceId ? 'bg-emerald-50/30' : ''}`}>-</td>
+                              return <td key={o.id} className={`px-3 py-2 text-center border-r border-slate-100 text-slate-300 ${o.id === viewingOccurrenceId ? 'bg-blue-50/30' : ''}`}>-</td>
                             })}
                             <td className="px-3 py-2 text-center bg-slate-50 font-medium text-slate-900">{attended} / {occurrences.length}</td>
                           </tr>
@@ -1003,6 +1003,46 @@ export default function ContextDetailPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Dropdown detail for the selected past occurrence */}
+                {viewingOccurrenceId && (
+                  <div className="mt-4 border border-blue-200 rounded-md bg-blue-50/30 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-medium text-blue-900">
+                        Detailed Check-ins: Week {occurrences.find(o => o.id === viewingOccurrenceId)?.session_number}
+                      </h3>
+                      <button onClick={() => setViewingOccurrenceId(null)} className="text-xs text-blue-600 hover:underline">
+                        Close
+                      </button>
+                    </div>
+                    {attendance.filter(r => r.occurrence_id === viewingOccurrenceId).length === 0 ? (
+                      <p className="text-sm text-slate-500 py-4 text-center">No check-ins for this week.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-blue-100">
+                          <tr>
+                            <th className="pb-2 font-medium">Name</th>
+                            <th className="pb-2 font-medium">In</th>
+                            <th className="pb-2 font-medium">Out</th>
+                            <th className="pb-2 font-medium">Method</th>
+                            <th className="pb-2 font-medium">Face</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-blue-100">
+                          {attendance.filter(r => r.occurrence_id === viewingOccurrenceId).map(r => (
+                            <tr key={r.id} className={r.status === 'absent' ? 'opacity-50' : ''}>
+                              <td className="py-2 text-slate-900">{r.participant?.full_name ?? '-'}</td>
+                              <td className="py-2 text-slate-600">{formatTime(r.checked_in_at)}</td>
+                              <td className="py-2 text-slate-600">{r.checked_out_at ? formatTime(r.checked_out_at) : '-'}</td>
+                              <td className="py-2 text-slate-600">{METHOD_LABELS[r.method] ?? r.method}</td>
+                              <td className="py-2"><FaceBadge record={r} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             
