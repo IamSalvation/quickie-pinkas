@@ -32,6 +32,7 @@ export default function CreateContextModal({ open, onClose, onCreated }: Props) 
     preset.features.checkout
   )
   const [idEntryEnabled, setIdEntryEnabled] = useState(false)
+  const [isRecurring, setIsRecurring] = useState(true)
   const [programs, setPrograms] = useState<Program[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -52,6 +53,7 @@ export default function CreateContextModal({ open, onClose, onCreated }: Props) 
     setEndsAt('')
     setCheckoutEnabled(preset.features.checkout)
     setIdEntryEnabled(false)
+    setIsRecurring(true)
     setError(null)
     setSubmitting(false)
   }
@@ -79,6 +81,7 @@ export default function CreateContextModal({ open, onClose, onCreated }: Props) 
       endsAt: endsAt ? new Date(endsAt).toISOString() : null,
       checkoutEnabled,
       idEntryEnabled,
+      isRecurring,
     })
 
     setSubmitting(false)
@@ -194,6 +197,20 @@ export default function CreateContextModal({ open, onClose, onCreated }: Props) 
         </div>
 
         <div className="space-y-2 rounded border border-slate-200 bg-slate-50 p-3">
+          <label className="flex items-start gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              className="mt-0.5 rounded border-slate-300"
+            />
+            <span>
+              Recurring session
+              <span className="block text-xs text-slate-500">
+                Open and close this session multiple times (e.g. Week 1, Week 2, Week 3). Each open/close creates a new occurrence.
+              </span>
+            </span>
+          </label>
           <label className="flex items-start gap-2 text-sm text-slate-700">
             <input
               type="checkbox"

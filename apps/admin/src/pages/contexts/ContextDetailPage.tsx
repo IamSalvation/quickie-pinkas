@@ -27,6 +27,7 @@ import {
   buildOnlineUrl,
 } from '../../lib/api/onlineCheckin'
 import OpenContextModal from './OpenContextModal'
+import { getOrOpenOccurrence, closeCurrentOccurrence } from '../../lib/api/occurrences'
 
 function StatusBadge({ status }: { status: ContextStatus }) {
   const styles: Record<ContextStatus, string> = {
@@ -179,7 +180,7 @@ function toLocalInput(iso: string): string {
 export default function ContextDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { account } = useAuth()
+  const { account, operator } = useAuth()
   const preset = getPreset(account?.preset)
 
   const [context, setContext] = useState<ContextWithProgram | null>(null)
@@ -248,6 +249,10 @@ export default function ContextDetailPage() {
 
   async function handleClose() {
     if (!context) return
+
+    if (context.is_recurring) {
+      await closeCurrentOccurrence(context.id)
+    }
 
     const openCount = attendance.filter(
       (r) => r.checked_out_at === null && r.status === 'present'
@@ -1009,9 +1014,13 @@ export default function ContextDetailPage() {
         open={showOpenModal}
         context={context}
         onClose={() => setShowOpenModal(false)}
-        onOpened={() => {
+        onOpened={async () => {
+          if (context?.is_recurring && operator?.id) {
+            await getOrOpenOccurrence(context.id, operator.id)
+          }
           loadContext()
           loadKiosks()
+          loadAttendance()
         }}
       />
     </div>

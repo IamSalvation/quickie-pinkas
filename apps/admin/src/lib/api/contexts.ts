@@ -29,6 +29,7 @@ export interface ContextRow {
   public_checkin_open: boolean
   public_checkin_expires: string | null
   id_entry_enabled: boolean
+  is_recurring: boolean
   checkout_enabled: boolean
   metadata: Record<string, unknown>
   created_at: string
@@ -156,6 +157,7 @@ export interface CreateContextInput {
   endsAt?: string | null
   checkoutEnabled?: boolean
   idEntryEnabled?: boolean
+  isRecurring?: boolean
 }
 
 export async function createContext(
@@ -176,6 +178,7 @@ export async function createContext(
       ends_at: input.endsAt || null,
       checkout_enabled: input.checkoutEnabled ?? false,
       id_entry_enabled: input.idEntryEnabled ?? false,
+      is_recurring: input.isRecurring ?? false,
       status: 'scheduled',
       phase: 'in',
     })
