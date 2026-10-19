@@ -153,6 +153,7 @@ export default function ContextDetailPage() {
   const [context, setContext] = useState<ContextWithProgram | null>(null)
   const [attendance, setAttendance] = useState<PresenceWithParticipant[]>([])
   const [occurrences, setOccurrences] = useState<ContextOccurrence[]>([])
+  const [viewingOccurrenceId, setViewingOccurrenceId] = useState<string | null>(null)
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   
   const [loading, setLoading] = useState(true)
@@ -417,23 +418,27 @@ export default function ContextDetailPage() {
       r.face_review_status !== 'pending'
   )
 
-  const currentOccurrence = occurrences.find((o) => o.closed_at === null)
-  const currentOccurrenceId = currentOccurrence?.id
+  // Determine which occurrence is "active" (if open), or the most recent one (if closed)
+  const activeOccurrence = occurrences.find((o) => o.closed_at === null)
+  const mostRecentOccurrence = occurrences.length > 0 ? occurrences[occurrences.length - 1] : null
+  
+  // The occurrence we are currently looking at (either explicitly selected, or the active/recent one)
+  const defaultOccurrence = activeOccurrence || mostRecentOccurrence
+  const currentOccurrenceId = viewingOccurrenceId || defaultOccurrence?.id
+  const currentOccurrence = occurrences.find((o) => o.id === currentOccurrenceId)
 
-  // Filter live table to only show current occurrence (or unlinked legacy records if not recurring)
+  // Filter live table to only show the target occurrence
   const liveAttendance = context?.is_recurring
     ? attendance.filter((r) => r.occurrence_id === currentOccurrenceId)
     : attendance
 
-  // Build past summary
-  const pastOccurrences = occurrences.filter((o) => o.id !== currentOccurrenceId)
+  // Build a map of every participant who has ANY record, and their records per occurrence
   const summaryParticipants = new Map<string, { name: string; records: Record<string, PresenceWithParticipant> }>()
   
   if (context?.is_recurring) {
     for (const rec of attendance) {
       if (!rec.participant || !rec.occurrence_id) continue
-      if (rec.occurrence_id === currentOccurrenceId) continue // Only past
-
+      
       if (!summaryParticipants.has(rec.participant.id)) {
         summaryParticipants.set(rec.participant.id, { name: rec.participant.full_name, records: {} })
       }
@@ -833,54 +838,16 @@ export default function ContextDetailPage() {
 
           <div className="rounded-lg bg-white p-5 shadow lg:col-span-2 flex flex-col gap-6">
             
-            {/* Past Occurrences Summary */}
-            {context?.is_recurring && pastOccurrences.length > 0 && (
-              <div>
-                <h2 className="text-sm font-medium text-slate-900 mb-3">Past Occurrences Summary</h2>
-                <div className="overflow-x-auto border border-slate-200 rounded-md">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-3 py-2 font-medium sticky left-0 bg-slate-50 z-10 border-r border-slate-200 min-w-[120px]">Student</th>
-                        {pastOccurrences.map((o) => (
-                          <th key={o.id} className="px-3 py-2 font-medium text-center border-r border-slate-100 min-w-[80px]">
-                            <div>Week {o.session_number}</div>
-                            <div className="text-slate-400 font-normal">{new Date(o.opened_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
-                          </th>
-                        ))}
-                        <th className="px-3 py-2 font-medium text-center bg-slate-100">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {Array.from(summaryParticipants.values()).map((p) => {
-                        let attended = 0
-                        return (
-                          <tr key={p.name} className="hover:bg-slate-50">
-                            <td className="px-3 py-2 text-slate-900 sticky left-0 bg-white border-r border-slate-200 font-medium">{p.name}</td>
-                            {pastOccurrences.map((o) => {
-                              const rec = p.records[o.id]
-                              if (rec && rec.status === 'present') {
-                                attended++
-                                return <td key={o.id} className="px-3 py-2 text-center border-r border-slate-100"><span className="text-emerald-600 font-medium">Present</span></td>
-                              }
-                              return <td key={o.id} className="px-3 py-2 text-center border-r border-slate-100 text-slate-300">-</td>
-                            })}
-                            <td className="px-3 py-2 text-center bg-slate-50 font-medium text-slate-900">{attended} / {pastOccurrences.length}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+            <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium text-slate-900">
-                {context?.is_recurring && currentOccurrence ? `Live Attendance (Occurrence ${currentOccurrence.session_number})` : 'Attendance'}
+                {context?.is_recurring && currentOccurrence 
+                  ? (context.status === 'open' && !viewingOccurrenceId 
+                      ? `Live Attendance (Occurrence ${currentOccurrence.session_number})` 
+                      : `Attendance (Occurrence ${currentOccurrence.session_number})`) 
+                  : 'Attendance'}
               </h2>
               <div className="flex items-center gap-3">
-                {context.status === 'open' && (
+                {context.status === 'open' && !viewingOccurrenceId && (
                   <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
                     <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
                     Live
@@ -896,7 +863,7 @@ export default function ContextDetailPage() {
               </div>
             </div>
 
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 -mt-4">
               {presentCount} present
               {absentCount > 0 && ` - ${absentCount} absent`}
               {checkedOutCount > 0 && ` - ${checkedOutCount} checked out`}
@@ -904,7 +871,7 @@ export default function ContextDetailPage() {
               {inPersonCount > 0 && ` - ${inPersonCount} in-person`}
             </p>
 
-            <div className="mt-4 max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto">
               {attendanceLoading && liveAttendance.length === 0 ? (
                 <div className="py-6 text-center text-sm text-slate-500">
                   Loading...
@@ -986,6 +953,59 @@ export default function ContextDetailPage() {
                 </table>
               )}
             </div>
+
+            {/* Occurrences Summary Grid - PLACED BELOW TABLE */}
+            {context?.is_recurring && occurrences.length > 0 && (
+              <div className="border-t border-slate-100 pt-4 mt-2">
+                <h2 className="text-sm font-medium text-slate-900 mb-3">All Occurrences Summary</h2>
+                <p className="text-xs text-slate-500 mb-2">Click a week to view its live attendance above.</p>
+                <div className="overflow-x-auto border border-slate-200 rounded-md">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2 font-medium sticky left-0 bg-slate-50 z-10 border-r border-slate-200 min-w-[120px]">Student</th>
+                        {occurrences.map((o) => (
+                          <th key={o.id} className="p-0 border-r border-slate-100 min-w-[80px]">
+                            <button
+                              onClick={() => setViewingOccurrenceId(o.id)}
+                              className={`w-full px-3 py-2 text-center transition-colors ${o.id === currentOccurrenceId ? 'bg-emerald-50 text-emerald-900' : 'hover:bg-slate-100 text-slate-600'}`}
+                            >
+                              <div>Week {o.session_number}</div>
+                              <div className="text-slate-400 font-normal">{new Date(o.opened_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+                            </button>
+                          </th>
+                        ))}
+                        <th className="px-3 py-2 font-medium text-center bg-slate-100">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {Array.from(summaryParticipants.values()).map((p) => {
+                        let attended = 0
+                        return (
+                          <tr key={p.name} className="hover:bg-slate-50">
+                            <td className="px-3 py-2 text-slate-900 sticky left-0 bg-white border-r border-slate-200 font-medium">{p.name}</td>
+                            {occurrences.map((o) => {
+                              const rec = p.records[o.id]
+                              if (rec && rec.status === 'present') {
+                                attended++
+                                return (
+                                  <td key={o.id} className={`px-3 py-2 text-center border-r border-slate-100 ${o.id === currentOccurrenceId ? 'bg-emerald-50/30' : ''}`}>
+                                    <span className="text-emerald-600 font-medium">Present</span>
+                                  </td>
+                                )
+                              }
+                              return <td key={o.id} className={`px-3 py-2 text-center border-r border-slate-100 text-slate-300 ${o.id === currentOccurrenceId ? 'bg-emerald-50/30' : ''}`}>-</td>
+                            })}
+                            <td className="px-3 py-2 text-center bg-slate-50 font-medium text-slate-900">{attended} / {occurrences.length}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            
           </div>
         </div>
 
