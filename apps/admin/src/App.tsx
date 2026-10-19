@@ -30,6 +30,7 @@ import CaComponentsPage from './pages/grades/CaComponentsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import BillingPage from './pages/billing/BillingPage'
 import BillingCallbackPage from './pages/billing/BillingCallbackPage'
+import TermsPage from './pages/terms/TermsPage'
 import StudentRecordPage from './pages/public/StudentRecordPage'
 import MessagesPage from './pages/messages/MessagesPage'
 import PlatformRoute from './pages/platform/PlatformRoute'
@@ -190,6 +191,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardHome />} />
         <Route path="/participants" element={<ParticipantsPage />} />
         <Route path="/groups" element={<GroupsPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/participants/print" element={<PrintBadgesPage />} />
         <Route path="/participants/:id" element={<ParticipantDetailPage />} />
         <Route path="/programs" element={<ProgramsPage />} />
