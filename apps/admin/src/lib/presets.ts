@@ -9,6 +9,8 @@ export interface PresetLabels {
   contexts: string
   operator: string
   operators: string
+  group: string
+  groups: string
 }
 
 export interface PresetDefinition {
@@ -21,6 +23,7 @@ export interface PresetDefinition {
     timetable: boolean
     parentView: boolean
     checkout: boolean
+    terms: boolean
   }
 }
 
@@ -29,13 +32,14 @@ const BASE_FEATURES = {
   timetable: false,
   parentView: false,
   checkout: false,
+  terms: false,
 }
 
 export const PRESETS: Record<AccountPreset, PresetDefinition> = {
   school: {
     value: 'school',
     label: 'School',
-    description: 'Lectures, terms, students, grades.',
+    description: 'Nursery, primary, and secondary. Classes, terms, students, grades.',
     labels: {
       participant: 'Student',
       participants: 'Students',
@@ -45,8 +49,28 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Sessions',
       operator: 'Lecturer',
       operators: 'Lecturers',
+      group: 'Class',
+      groups: 'Classes',
     },
-    features: { ...BASE_FEATURES, gradebook: true, timetable: true, parentView: true },
+    features: { ...BASE_FEATURES, gradebook: true, timetable: true, parentView: true, terms: true },
+  },
+  university: {
+    value: 'university',
+    label: 'University',
+    description: 'Departments, years, semesters, courses, grades.',
+    labels: {
+      participant: 'Student',
+      participants: 'Students',
+      program: 'Course',
+      programs: 'Courses',
+      context: 'Lecture',
+      contexts: 'Lectures',
+      operator: 'Lecturer',
+      operators: 'Lecturers',
+      group: 'Department',
+      groups: 'Departments',
+    },
+    features: { ...BASE_FEATURES, gradebook: true, timetable: true, parentView: false, terms: true },
   },
   symposium: {
     value: 'symposium',
@@ -61,6 +85,8 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Talks',
       operator: 'Speaker',
       operators: 'Speakers',
+      group: 'Group',
+      groups: 'Groups',
     },
     features: { ...BASE_FEATURES },
   },
@@ -77,6 +103,8 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Modules',
       operator: 'Instructor',
       operators: 'Instructors',
+      group: 'Cohort',
+      groups: 'Cohorts',
     },
     features: { ...BASE_FEATURES },
   },
@@ -93,6 +121,8 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Sessions',
       operator: 'Speaker',
       operators: 'Speakers',
+      group: 'Group',
+      groups: 'Groups',
     },
     features: { ...BASE_FEATURES },
   },
@@ -109,6 +139,8 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Stays',
       operator: 'Staff',
       operators: 'Staff',
+      group: 'Group',
+      groups: 'Groups',
     },
     features: { ...BASE_FEATURES, checkout: true },
   },
@@ -125,6 +157,8 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Checkpoints',
       operator: 'Staff',
       operators: 'Staff',
+      group: 'Group',
+      groups: 'Groups',
     },
     features: { ...BASE_FEATURES, checkout: true },
   },
@@ -141,6 +175,8 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       contexts: 'Occurrences',
       operator: 'Operator',
       operators: 'Operators',
+      group: 'Group',
+      groups: 'Groups',
     },
     features: { ...BASE_FEATURES },
   },

@@ -39,11 +39,15 @@ export default function Sidebar({ onClose }: SidebarProps) {
   }> = [
     { to: '/dashboard', label: 'Dashboard', end: true },
     { to: '/participants', label: preset.labels.participants, end: false },
+    { to: '/groups', label: preset.labels.groups, end: false },
     { to: '/programs', label: preset.labels.programs, end: false },
     { to: '/contexts', label: preset.labels.contexts, end: false },
     { to: '/kiosks', label: 'Kiosks', end: false },
-    ...(preset.value === 'school'
+    ...(preset.features.gradebook
       ? [{ to: '/grades', label: 'Grades', end: false }]
+      : []),
+    ...(preset.features.terms
+      ? [{ to: '/terms', label: preset.value === 'university' ? 'Semesters' : 'Terms', end: false }]
       : []),
     { to: '/reports', label: 'Reports', end: false },
     { to: '/messages', label: 'Messages', end: false, badge: unread },
@@ -54,7 +58,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
   return (
     <nav className="flex flex-col h-full bg-slate-900 text-slate-100">
       <div className="flex items-center justify-between px-4 py-5 border-b border-slate-800">
-        <div className="flex items-center gap-2 min-w-0"><img src="/logo.png" alt="Quickie Pinkas" className="h-7 w-auto shrink-0" /><div className="text-base font-semibold truncate">Quickie Pinkas</div>
+        <div className="flex items-center gap-2 min-w-0">
+          <img src="/logo.png" alt="Quickie Pinkas" className="h-7 w-auto shrink-0" />
+          <div className="text-base font-semibold truncate">Quickie Pinkas</div>
           <div className="mt-1 text-xs text-slate-400 truncate">
             {account?.name ?? 'Loading...'}
           </div>

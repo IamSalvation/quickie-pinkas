@@ -16,6 +16,7 @@ import DashboardHome from './pages/dashboard/Home'
 import ParticipantsPage from './pages/participants/ParticipantsPage'
 import ParticipantDetailPage from './pages/participants/ParticipantDetailPage'
 import PrintBadgesPage from './pages/participants/PrintBadgesPage'
+import GroupsPage from './pages/groups/GroupsPage'
 import ProgramsPage from './pages/programs/ProgramsPage'
 import ContextsPage from './pages/contexts/ContextsPage'
 import ContextDetailPage from './pages/contexts/ContextDetailPage'
@@ -188,6 +189,7 @@ function AppRoutes() {
       >
         <Route path="/dashboard" element={<DashboardHome />} />
         <Route path="/participants" element={<ParticipantsPage />} />
+        <Route path="/groups" element={<GroupsPage />} />
         <Route path="/participants/print" element={<PrintBadgesPage />} />
         <Route path="/participants/:id" element={<ParticipantDetailPage />} />
         <Route path="/programs" element={<ProgramsPage />} />

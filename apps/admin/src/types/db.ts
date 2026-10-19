@@ -2,6 +2,7 @@ export type AccountStatus = 'pending' | 'active' | 'paused' | 'deleted'
 export type AccountTier = 'v1' | 'v2'
 export type AccountPreset =
   | 'school'
+  | 'university'
   | 'symposium'
   | 'bootcamp'
   | 'conference'
@@ -11,6 +12,10 @@ export type AccountPreset =
 
 export type OperatorRole = 'admin' | 'lecturer' | 'staff'
 export type OperatorStatus = 'active' | 'invited' | 'disabled'
+
+export type GroupType = 'class' | 'department' | 'year' | 'cohort' | 'house' | 'custom'
+export type GroupLevel = 'creche' | 'nursery' | 'primary' | 'secondary' | 'custom'
+export type AttendanceMode = 'daily' | 'subject'
 
 export interface Account {
   id: string
@@ -58,4 +63,37 @@ export interface Operator {
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string
+}
+
+export interface Participant {
+  id: string
+  account_id: string
+  group_id: string | null
+  system_id: string
+  external_id: string | null
+  full_name: string
+  photo_url: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface Group {
+  id: string
+  account_id: string
+  name: string
+  type: GroupType
+  parent_id: string | null
+  level: GroupLevel | null
+  attendance_mode: AttendanceMode
+  grading_enabled: boolean
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface GroupWithParent extends Group {
+  parent: { id: string; name: string } | null
+  participant_count: number
+  child_count: number
 }
