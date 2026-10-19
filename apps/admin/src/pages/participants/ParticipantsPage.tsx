@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getPreset } from '../../lib/presets'
 import { getAccountUsage, type AccountUsage } from '../../lib/api/access'
 import UpgradePrompt from '../../components/layout/UpgradePrompt'
+import { listGroups } from '../../lib/api/groups'
+import type { GroupWithParent } from '../../types/db'
 import {
   listParticipants,
   deleteParticipant,
@@ -21,26 +23,43 @@ export default function ParticipantsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [groupFilter, setGroupFilter] = useState<string>('all')
+  const [groups, setGroups] = useState<GroupWithParent[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
   const [usage, setUsage] = useState<AccountUsage | null>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
+
+  const loadGroups = useCallback(async () => {
+    if (!account) return
+    const { data } = await listGroups(account.id)
+    setGroups(data)
+  }, [account])
+
+  useEffect(() => {
+    loadGroups()
+  }, [loadGroups])
 
   const load = useCallback(async () => {
     if (!account) return
     setLoading(true)
     setError(null)
 
+    const opts: { search?: string; groupId?: string } = { search }
+    if (groupFilter !== 'all') {
+      opts.groupId = groupFilter
+    }
+
     const { data, count: total, error: err } = await listParticipants(
       account.id,
-      { search }
+      opts
     )
 
     setParticipants(data)
     setCount(total)
     setError(err)
     setLoading(false)
-  }, [account, search])
+  }, [account, search, groupFilter])
 
   useEffect(() => {
     load()
@@ -57,26 +76,20 @@ export default function ParticipantsPage() {
   }, [loadUsage])
 
   function handleCreateClick() {
-    // Never allow creation until the usage check has completed.
     if (!usage) {
       alert('Account limits are still loading. Please try again in a moment.')
       return
     }
-
-    // Expired accounts in grace mode are read-only.
     if (usage.state === 'grace') {
       alert(
         'Read-only mode: your account access has expired. Contact support to renew.'
       )
       return
     }
-
-    // Compare the actual RPC values directly.
     if (usage.participants >= usage.max_participants) {
       setShowUpgrade(true)
       return
     }
-
     setShowCreate(true)
   }
 
@@ -92,6 +105,8 @@ export default function ParticipantsPage() {
     loadUsage()
   }
 
+  const groupById = new Map(groups.map((g) => [g.id, g]))
+
   return (
     <div className="p-6">
       <div className="mx-auto max-w-6xl">
@@ -106,7 +121,7 @@ export default function ParticipantsPage() {
               {count === 1
                 ? preset.labels.participant.toLowerCase()
                 : preset.labels.participants.toLowerCase()}{' '}
-              registered
+              {groupFilter !== 'all' ? 'in this ' + preset.labels.group.toLowerCase() : 'registered'}
             </p>
           </div>
           <div className="flex gap-2">
@@ -133,14 +148,26 @@ export default function ParticipantsPage() {
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <input
             type="text"
             placeholder={`Search by name or ${preset.labels.participant.toLowerCase()} ID...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full max-w-md rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+            className="w-full sm:max-w-md rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
           />
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+          >
+            <option value="all">All {preset.labels.groups.toLowerCase()}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {error && (
@@ -155,11 +182,11 @@ export default function ParticipantsPage() {
           ) : participants.length === 0 ? (
             <div className="p-10 text-center">
               <p className="text-sm text-slate-500">
-                {search
+                {search || groupFilter !== 'all'
                   ? 'No matches.'
                   : `No ${preset.labels.participants.toLowerCase()} yet.`}
               </p>
-              {!search && (
+              {!search && groupFilter === 'all' && (
                 <button
                   onClick={handleCreateClick}
                   className="mt-4 rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
@@ -176,37 +203,53 @@ export default function ParticipantsPage() {
                   <th className="px-4 py-3 font-medium">
                     {preset.labels.participant} ID
                   </th>
+                  <th className="px-4 py-3 font-medium">{preset.labels.group}</th>
                   <th className="px-4 py-3 font-medium">External ID</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {participants.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/participants/${p.id}`}
-                        className="font-medium text-slate-900 hover:underline"
-                      >
-                        {p.full_name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-700">
-                      {p.system_id}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {p.external_id ?? <span className="text-slate-300">-</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleDelete(p)}
-                        className="text-xs text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {participants.map((p) => {
+                  const g = p.group_id ? groupById.get(p.group_id) : null
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/participants/${p.id}`}
+                          className="font-medium text-slate-900 hover:underline"
+                        >
+                          {p.full_name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-700">
+                        {p.system_id}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {g ? (
+                          <button
+                            onClick={() => setGroupFilter(g.id)}
+                            className="text-slate-600 hover:underline"
+                          >
+                            {g.name}
+                          </button>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {p.external_id ?? <span className="text-slate-300">-</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleDelete(p)}
+                          className="text-xs text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

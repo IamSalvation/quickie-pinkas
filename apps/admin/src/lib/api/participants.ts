@@ -4,6 +4,7 @@ import type { Account } from '../../types/db'
 export interface Participant {
   id: string
   account_id: string
+  group_id: string | null
   full_name: string
   system_id: string
   external_id: string | null
@@ -17,6 +18,7 @@ export interface ListParticipantsOptions {
   search?: string
   limit?: number
   offset?: number
+  groupId?: string
 }
 
 export async function listParticipants(
@@ -32,6 +34,10 @@ export async function listParticipants(
     .eq('account_id', accountId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
+
+  if (opts.groupId) {
+    query = query.eq('group_id', opts.groupId)
+  }
 
   if (opts.search && opts.search.trim()) {
     const s = opts.search.trim()

@@ -15,6 +15,8 @@ import { supabase } from '../../lib/supabase'
 import ParticipantBadge from '../../components/badge/ParticipantBadge'
 import PhotoCapture from '../../components/PhotoCapture'
 import FaceEnrollmentModal from '../../components/FaceEnrollmentModal'
+import { listGroups, getGroup, assignParticipantToGroup } from '../../lib/api/groups'
+import type { Group, GroupWithParent } from '../../types/db'
 
 interface FaceEnrollmentInfo {
   enrolled: boolean
@@ -43,6 +45,10 @@ export default function ParticipantDetailPage() {
   })
   const [showFaceModal, setShowFaceModal] = useState(false)
 
+  const [participantGroup, setParticipantGroup] = useState<Group | null>(null)
+  const [allGroups, setAllGroups] = useState<GroupWithParent[]>([])
+  const [savingGroup, setSavingGroup] = useState(false)
+
   const isV2 = account?.tier === 'v2'
 
   useEffect(() => {
@@ -51,6 +57,39 @@ export default function ParticipantDetailPage() {
       document.body.classList.remove('printing-badge')
     }
   }, [])
+
+  const loadGroupAndOptions = useCallback(async () => {
+    if (!id || !account) return
+    // Fetch participant's current group
+    const { data: p } = await supabase
+      .from('participants')
+      .select('group_id')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (p?.group_id) {
+      const { data: g } = await getGroup(p.group_id)
+      setParticipantGroup(g)
+    } else {
+      setParticipantGroup(null)
+    }
+
+    // Fetch all groups for the picker
+    const { data: groups } = await listGroups(account.id)
+    setAllGroups(groups)
+  }, [id, account])
+
+  async function handleChangeGroup(newGroupId: string | null) {
+    if (!participant) return
+    setSavingGroup(true)
+    const { error: err } = await assignParticipantToGroup(participant.id, newGroupId)
+    setSavingGroup(false)
+    if (err) {
+      alert(err)
+      return
+    }
+    loadGroupAndOptions()
+  }
 
   const loadFaceInfo = useCallback(async () => {
     if (!id) return
@@ -304,6 +343,53 @@ export default function ParticipantDetailPage() {
                   <dd className="mt-0.5 text-slate-900">
                     {participant.external_id ?? (
                       <span className="text-slate-400">-</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">{preset.labels.group}</dt>
+                  <dd className="mt-0.5 text-slate-900">
+                    {participantGroup ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{participantGroup.name}</span>
+                        {participantGroup.level && (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
+                            {participantGroup.level}
+                          </span>
+                        )}
+                        <select
+                          value={participantGroup.id}
+                          onChange={(e) => handleChangeGroup(e.target.value || null)}
+                          disabled={savingGroup}
+                          className="text-xs text-slate-600 border border-slate-300 rounded px-1.5 py-0.5 bg-white hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          <option value="">(Remove from {preset.labels.group.toLowerCase()})</option>
+                          {allGroups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">Not assigned</span>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) handleChangeGroup(e.target.value)
+                          }}
+                          disabled={savingGroup}
+                          className="text-xs text-slate-700 border border-slate-300 rounded px-1.5 py-0.5 bg-white hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          <option value="">Assign {preset.labels.group.toLowerCase()}...</option>
+                          {allGroups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     )}
                   </dd>
                 </div>
