@@ -25,6 +25,8 @@ export interface PresenceRecord {
   participant_id: string
   context_id: string
   occurrence_id: string | null
+  manually_added: boolean
+  added_reason: string | null
   kiosk_id: string | null
   checked_in_at: string
   checked_out_at: string | null
@@ -271,6 +273,72 @@ export async function addManualAttendance(
       added_by: operatorId,
       added_reason: reason,
     })
+
+  if (error) return { error: error.message }
+  return { error: null }
+}
+
+export interface ManualOverrideRecord {
+  id: string
+  checked_in_at: string
+  added_reason: string | null
+  participant: {
+    full_name: string
+    system_id: string
+  } | null
+  context: {
+    label: string
+  } | null
+  occurrence: {
+    session_number: number
+  } | null
+}
+
+export async function listManualOverrides(
+  accountId: string,
+  limit = 50
+): Promise<{ data: ManualOverrideRecord[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('presence_records')
+    .select(`
+      id,
+      checked_in_at,
+      added_reason,
+      participant:participants(full_name, system_id),
+      context:contexts(label),
+      occurrence:context_occurrences(session_number)
+    `)
+    .eq('account_id', accountId)
+    .eq('manually_added', true)
+    .order('checked_in_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return { data: [], error: error.message }
+  
+  // Flatten the joins (Supabase returns arrays for joins sometimes)
+  const rows = (data ?? []).map((row) => {
+    const p = Array.isArray(row.participant) ? row.participant[0] : row.participant
+    const c = Array.isArray(row.context) ? row.context[0] : row.context
+    const o = Array.isArray(row.occurrence) ? row.occurrence[0] : row.occurrence
+    return {
+      ...row,
+      participant: p ?? null,
+      context: c ?? null,
+      occurrence: o ?? null,
+    } as ManualOverrideRecord
+  })
+
+  return { data: rows, error: null }
+}
+
+export async function deleteManualOverride(
+  recordId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('presence_records')
+    .delete()
+    .eq('id', recordId)
+    .eq('manually_added', true) // Safety: only allow deleting manual records
 
   if (error) return { error: error.message }
   return { error: null }

@@ -17,6 +17,7 @@ import {
   resolveCheckout,
   resolveAbsent,
   approveFaceCheckin,
+  deleteManualOverride,
   rejectFaceCheckin,
   type PresenceWithParticipant,
 } from '../../lib/api/presence'
@@ -307,6 +308,18 @@ export default function ContextDetailPage() {
       return
     setResolvingId(rec.id)
     const { error: err } = await resolveAbsent(rec.id)
+    setResolvingId(null)
+    if (err) {
+      alert(err)
+      return
+    }
+    loadAttendance()
+  }
+
+  async function handleDeleteManual(rec: PresenceWithParticipant) {
+    if (!confirm(`Remove manual attendance for ${rec.participant?.full_name}? This cannot be undone.`)) return
+    setResolvingId(rec.id)
+    const { error: err } = await deleteManualOverride(rec.id)
     setResolvingId(null)
     if (err) {
       alert(err)
@@ -1008,16 +1021,35 @@ export default function ContextDetailPage() {
                                     <th className="pb-2 font-medium">Out</th>
                                     <th className="pb-2 font-medium">Method</th>
                                     <th className="pb-2 font-medium">Face</th>
+                                    <th className="pb-2 font-medium text-right">Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                   {occAttendance.map(r => (
                                     <tr key={r.id} className={r.status === 'absent' ? 'opacity-50' : ''}>
-                                      <td className="py-2 text-slate-900">{r.participant?.full_name ?? '-'}</td>
+                                      <td className="py-2 text-slate-900">
+                                        {r.participant?.full_name ?? '-'}
+                                        {r.manually_added && (
+                                          <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+                                            Manual
+                                          </span>
+                                        )}
+                                      </td>
                                       <td className="py-2 text-slate-600">{formatTime(r.checked_in_at)}</td>
                                       <td className="py-2 text-slate-600">{r.checked_out_at ? formatTime(r.checked_out_at) : '-'}</td>
                                       <td className="py-2 text-slate-600">{METHOD_LABELS[r.method] ?? r.method}</td>
                                       <td className="py-2"><FaceBadge record={r} /></td>
+                                      <td className="py-2 text-right">
+                                        {r.manually_added && (
+                                          <button
+                                            onClick={() => handleDeleteManual(r)}
+                                            disabled={resolvingId === r.id}
+                                            className="text-[10px] text-red-600 hover:underline disabled:opacity-50"
+                                          >
+                                            Remove
+                                          </button>
+                                        )}
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>

@@ -18,6 +18,7 @@ import AccessLimitsEditModal from './AccessLimitsEditModal'
 import StorageCleanupCard from '../../components/storage/StorageCleanupCard'
 import AcademicStatsModal from './AcademicStatsModal'
 import { getAccountAcademicStats, type AccountAcademicStats } from '../../lib/api/platform'
+import { listManualOverrides, deleteManualOverride, type ManualOverrideRecord } from '../../lib/api/presence'
 
 export default function PlatformAccountDetail() {
   const { id } = useParams<{ id: string }>()
@@ -31,6 +32,8 @@ export default function PlatformAccountDetail() {
   const [showLimitsEdit, setShowLimitsEdit] = useState(false)
   const [showAcademicEdit, setShowAcademicEdit] = useState(false)
   const [academicStats, setAcademicStats] = useState<AccountAcademicStats | null>(null)
+  const [manualOverrides, setManualOverrides] = useState<ManualOverrideRecord[]>([])
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -48,10 +51,29 @@ export default function PlatformAccountDetail() {
     setAcademicStats(data)
   }, [id])
 
+  const loadManualOverrides = useCallback(async () => {
+    if (!id) return
+    const { data } = await listManualOverrides(id, 50)
+    setManualOverrides(data)
+  }, [id])
+
   useEffect(() => {
     load()
     loadAcademicStats()
-  }, [load, loadAcademicStats])
+    loadManualOverrides()
+  }, [load, loadAcademicStats, loadManualOverrides])
+
+  async function handleDeleteManual(recordId: string) {
+    if (!confirm('Delete this manual override record? The student will be marked Absent.')) return
+    setDeletingId(recordId)
+    const { error: err } = await deleteManualOverride(recordId)
+    setDeletingId(null)
+    if (err) {
+      alert(err)
+      return
+    }
+    loadManualOverrides()
+  }
 
   async function runAction(
     fn: () => Promise<{ error: string | null }>,
@@ -344,6 +366,74 @@ export default function PlatformAccountDetail() {
 
       <div className="mt-6">
         <StorageCleanupCard accountId={account.id} isPlatformAdmin />
+      </div>
+
+      {/* Manual Attendance Audit Card */}
+      <div className="mt-6 rounded-lg bg-white shadow">
+        <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-slate-900">Manual Attendance Audit</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              The last 50 attendance records manually added by this school.
+            </p>
+          </div>
+          <button
+            onClick={loadManualOverrides}
+            className="text-xs text-slate-500 hover:underline"
+          >
+            Refresh
+          </button>
+        </div>
+        <div className="p-4">
+          {manualOverrides.length === 0 ? (
+            <p className="text-sm text-slate-500">No manual overrides found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Student</th>
+                    <th className="px-3 py-2 font-medium">Session</th>
+                    <th className="px-3 py-2 font-medium">Reason</th>
+                    <th className="px-3 py-2 font-medium text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {manualOverrides.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-slate-600">
+                        {new Date(r.checked_in_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-slate-900">
+                        {r.participant?.full_name ?? '-'}
+                        <span className="ml-1 text-xs text-slate-400">
+                          ({r.participant?.system_id})
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {r.context?.label ?? '-'} 
+                        {r.occurrence?.session_number && ` (Wk ${r.occurrence.session_number})`}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {r.added_reason ?? '-'}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => handleDeleteManual(r.id)}
+                          disabled={deletingId === r.id}
+                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 overflow-hidden rounded-lg bg-white shadow">
