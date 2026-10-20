@@ -88,7 +88,7 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       group: 'Group',
       groups: 'Groups',
     },
-    features: { ...BASE_FEATURES },
+    features: { ...BASE_FEATURES, terms: false },
   },
   bootcamp: {
     value: 'bootcamp',
@@ -106,7 +106,7 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       group: 'Cohort',
       groups: 'Cohorts',
     },
-    features: { ...BASE_FEATURES },
+    features: { ...BASE_FEATURES, terms: false },
   },
   conference: {
     value: 'conference',
@@ -124,7 +124,7 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       group: 'Group',
       groups: 'Groups',
     },
-    features: { ...BASE_FEATURES },
+    features: { ...BASE_FEATURES, terms: false },
   },
   hotel: {
     value: 'hotel',
@@ -142,7 +142,7 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       group: 'Group',
       groups: 'Groups',
     },
-    features: { ...BASE_FEATURES, checkout: true },
+    features: { ...BASE_FEATURES, checkout: true, terms: false },
   },
   event: {
     value: 'event',
@@ -160,7 +160,7 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       group: 'Group',
       groups: 'Groups',
     },
-    features: { ...BASE_FEATURES, checkout: true },
+    features: { ...BASE_FEATURES, checkout: true, terms: false },
   },
   custom: {
     value: 'custom',
@@ -178,7 +178,7 @@ export const PRESETS: Record<AccountPreset, PresetDefinition> = {
       group: 'Group',
       groups: 'Groups',
     },
-    features: { ...BASE_FEATURES },
+    features: { ...BASE_FEATURES, terms: false },
   },
 }
 
