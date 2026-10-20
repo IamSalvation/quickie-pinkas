@@ -369,3 +369,80 @@ export async function updateAccountLimits(
 
   return { error: null }
 }
+
+export interface AccountAcademicStats {
+  groups_count: number
+  group_type: string
+  terms_count: number
+  active_term_name: string | null
+  active_term_id: string | null
+  sessions_count: number
+  occurrences_count: number
+  manual_overrides_count: number
+}
+
+export async function getAccountAcademicStats(accountId: string): Promise<{ data: AccountAcademicStats | null; error: string | null }> {
+  // Fetch context IDs first (needed for occurrences count)
+  const { data: contextRows } = await supabase
+    .from('contexts')
+    .select('id')
+    .eq('account_id', accountId)
+  const contextIds = (contextRows ?? []).map((c: { id: string }) => c.id)
+
+  const [groups, terms, contexts, occurrences, manual] = await Promise.all([
+    supabase.from('groups').select('*', { count: 'exact', head: true }).eq('account_id', accountId),
+    supabase.from('terms').select('*').eq('account_id', accountId),
+    supabase.from('contexts').select('*', { count: 'exact', head: true }).eq('account_id', accountId),
+    contextIds.length > 0
+      ? supabase.from('context_occurrences').select('*', { count: 'exact', head: true }).in('context_id', contextIds)
+      : Promise.resolve({ count: 0, error: null }),
+    supabase.from('presence_records').select('*', { count: 'exact', head: true }).eq('account_id', accountId).eq('manually_added', true)
+  ])
+
+  if (groups.error || terms.error || contexts.error || occurrences.error || manual.error) {
+    return { data: null, error: 'Failed to load stats' }
+  }
+
+  const activeTerm = (terms.data ?? []).find(t => t.status === 'active')
+  const groupType = groups.count && groups.count > 0 ? 'Groups' : 'Groups'
+
+  return {
+    data: {
+      groups_count: groups.count ?? 0,
+      group_type: groupType,
+      terms_count: (terms.data ?? []).length,
+      active_term_name: activeTerm ? activeTerm.name : null,
+      active_term_id: activeTerm ? activeTerm.id : null,
+      sessions_count: contexts.count ?? 0,
+      occurrences_count: occurrences.count ?? 0,
+      manual_overrides_count: manual.count ?? 0,
+    },
+    error: null,
+  }
+}
+
+export async function platformOverrideActiveTerm(accountId: string, termId: string | null): Promise<{ error: string | null }> {
+  // 1. End all currently active terms for this account
+  const { error: endErr } = await supabase
+    .from('terms')
+    .update({ status: 'ended' })
+    .eq('account_id', accountId)
+    .eq('status', 'active')
+  
+  if (endErr) return { error: endErr.message }
+
+  // 2. If a new term is selected, activate it
+  if (termId) {
+    const { error: actErr } = await supabase
+      .from('terms')
+      .update({ status: 'active' })
+      .eq('id', termId)
+    if (actErr) return { error: actErr.message }
+  }
+
+  return { error: null }
+}
+
+export async function getAccountTerms(accountId: string) {
+  return await supabase.from('terms').select('id, name, status').eq('account_id', accountId).order('order_index')
+}

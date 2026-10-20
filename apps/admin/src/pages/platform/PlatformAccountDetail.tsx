@@ -16,6 +16,8 @@ import {
 import AccessLimitsCard from './AccessLimitsCard'
 import AccessLimitsEditModal from './AccessLimitsEditModal'
 import StorageCleanupCard from '../../components/storage/StorageCleanupCard'
+import AcademicStatsModal from './AcademicStatsModal'
+import { getAccountAcademicStats, type AccountAcademicStats } from '../../lib/api/platform'
 
 export default function PlatformAccountDetail() {
   const { id } = useParams<{ id: string }>()
@@ -27,6 +29,8 @@ export default function PlatformAccountDetail() {
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
   const [showLimitsEdit, setShowLimitsEdit] = useState(false)
+  const [showAcademicEdit, setShowAcademicEdit] = useState(false)
+  const [academicStats, setAcademicStats] = useState<AccountAcademicStats | null>(null)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -38,9 +42,16 @@ export default function PlatformAccountDetail() {
     setLoading(false)
   }, [id])
 
+  const loadAcademicStats = useCallback(async () => {
+    if (!id) return
+    const { data } = await getAccountAcademicStats(id)
+    setAcademicStats(data)
+  }, [id])
+
   useEffect(() => {
     load()
-  }, [load])
+    loadAcademicStats()
+  }, [load, loadAcademicStats])
 
   async function runAction(
     fn: () => Promise<{ error: string | null }>,
@@ -266,6 +277,70 @@ export default function PlatformAccountDetail() {
           onEdit={() => setShowLimitsEdit(true)}
         />
       </div>
+
+      <div className="mt-6 rounded-lg bg-white shadow">
+        <div className="border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-slate-900">Academic Structure</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Read-only view. Click Edit to override the active term.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAcademicEdit(true)}
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Edit
+          </button>
+        </div>
+        <div className="p-4">
+          {academicStats ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Groups</div>
+                <div className="mt-1 text-2xl font-semibold text-slate-900">{academicStats.groups_count}</div>
+                <div className="mt-0.5 text-xs text-slate-500">Classes / Departments</div>
+              </div>
+              <div className="rounded border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Terms</div>
+                <div className="mt-1 text-2xl font-semibold text-slate-900">{academicStats.terms_count}</div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {academicStats.active_term_name ? 'Active: ' + academicStats.active_term_name : 'No active term'}
+                </div>
+              </div>
+              <div className="rounded border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Sessions / Occurrences</div>
+                <div className="mt-1 text-2xl font-semibold text-slate-900">
+                  {academicStats.sessions_count} / {academicStats.occurrences_count}
+                </div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {academicStats.sessions_count > 0
+                    ? 'Avg ' + (academicStats.occurrences_count / academicStats.sessions_count).toFixed(1) + ' per session'
+                    : 'No sessions yet'}
+                </div>
+              </div>
+              <div className="rounded border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">Manual Overrides</div>
+                <div className="mt-1 text-2xl font-semibold text-slate-900">{academicStats.manual_overrides_count}</div>
+                <div className="mt-0.5 text-xs text-slate-500">Manually added check-ins</div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Loading academic stats...</p>
+          )}
+        </div>
+      </div>
+
+      <AcademicStatsModal
+        open={showAcademicEdit}
+        onClose={() => setShowAcademicEdit(false)}
+        onSaved={() => {
+          loadAcademicStats()
+          load()
+        }}
+        accountId={account.id}
+        currentActiveTermId={academicStats?.active_term_id ?? null}
+      />
 
       <div className="mt-6">
         <StorageCleanupCard accountId={account.id} isPlatformAdmin />
