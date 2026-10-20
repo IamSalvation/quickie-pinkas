@@ -85,7 +85,6 @@ const METHOD_LABELS: Record<string, string> = {
   face_verified: 'Face',
 }
 
-// Types for Custom Master Sheet
 interface CustomCourseData {
   course_id: string
   course_name: string
@@ -136,7 +135,6 @@ export default function ReportsPage() {
   const [gradesError, setGradesError] = useState<string | null>(null)
 
   // Custom Master Sheet State
-  const [customCourseId, setCustomCourseId] = useState<string>('')
   const [customStudentIds, setCustomStudentIds] = useState<string[]>([])
   const [customData, setCustomData] = useState<CustomRow[]>([])
   const [customLoading, setCustomLoading] = useState(false)
@@ -148,16 +146,9 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!account) return
-    listPrograms(account.id, { status: 'all', limit: 200 }).then(({ data }) => {
-      setPrograms(data)
-      if (data.length > 0 && !customCourseId) setCustomCourseId(data[0].id)
-    })
-    listContexts(account.id, { status: 'all', limit: 200 }).then(({ data }) =>
-      setContexts(data)
-    )
-    listParticipants(account.id, { limit: 500 }).then(({ data }) =>
-      setParticipants(data)
-    )
+    listPrograms(account.id, { status: 'all', limit: 200 }).then(({ data }) => setPrograms(data))
+    listContexts(account.id, { status: 'all', limit: 200 }).then(({ data }) => setContexts(data))
+    listParticipants(account.id, { limit: 500 }).then(({ data }) => setParticipants(data))
   }, [account])
 
   const loadMasterSheet = useCallback(async () => {
@@ -221,17 +212,18 @@ export default function ReportsPage() {
     if (tab === 'grades' && gradesProgramId) loadGradedReport()
   }, [tab, gradesProgramId, loadGradedReport])
 
+  // --- CUSTOM SHEET LOGIC ---
   async function generateCustomSheet() {
-    if (!customCourseId || customStudentIds.length === 0) {
-      setCustomError('Select a course and at least one student.')
+    if (customStudentIds.length === 0) {
+      setCustomError('Select at least one student.')
       return
     }
     setCustomLoading(true)
     setCustomError(null)
 
-    const { data, error: err } = await supabase.rpc('get_custom_master_sheet', {
+    // Call the new V2 function that doesn't require course IDs
+    const { data, error: err } = await supabase.rpc('get_custom_master_sheet_v2', {
       p_student_ids: customStudentIds,
-      p_course_ids: [customCourseId],
     })
 
     if (err) {
@@ -246,6 +238,46 @@ export default function ReportsPage() {
 
   function toggleStudent(id: string) {
     setCustomStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  // Gather all unique courses across all students for the columns
+  const customCourseColumns = customData.reduce((acc, row) => {
+    Object.values(row.courses || {}).forEach(course => {
+      if (!acc.find(c => c.course_id === course.course_id)) {
+        acc.push(course)
+      }
+    })
+    return acc
+  }, [] as CustomCourseData[]).sort((a, b) => (a.course_name || '').localeCompare(b.course_name || ''))
+
+  function handleCustomCsv() {
+    if (customData.length === 0) return
+
+    // Build headers
+    const headers = ['Student', 'System ID']
+    customCourseColumns.forEach(c => {
+      headers.push(`${c.course_name} - Att`)
+      headers.push(`${c.course_name} - Total`)
+    })
+
+    // Build rows
+    const rows = customData.map(s => {
+      const rowData = [s.student_name, s.system_id]
+      customCourseColumns.forEach(c => {
+        const cd = s.courses[c.course_id]
+        rowData.push(cd ? `${cd.attendance_pct}%` : '-')
+        rowData.push(cd && cd.total !== null ? `${cd.total} (${cd.grade})` : '-')
+      })
+      return rowData
+    })
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    downloadCsv('custom-master-sheet.csv', csvContent)
   }
 
   function handleMasterCsv() {
@@ -272,7 +304,6 @@ export default function ReportsPage() {
   const selectedProgram = programs.find((p) => p.id === selectedProgramId)
   const gradesProgram = programs.find((p) => p.id === gradesProgramId)
   const selectedContext = contexts.find((c) => c.id === selectedContextId)
-  const selectedCustomCourse = programs.find((p) => p.id === customCourseId)
 
   return (
     <div className="p-4 sm:p-6">
@@ -802,21 +833,7 @@ export default function ReportsPage() {
           <div>
             <div className="mt-5 bg-white p-5 rounded-lg shadow mb-6 space-y-4 print:hidden">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Select {preset.labels.program}
-                </label>
-                <select
-                  value={customCourseId}
-                  onChange={(e) => setCustomCourseId(e.target.value)}
-                  className="block w-full max-w-md rounded border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="">Select a {preset.labels.program.toLowerCase()}...</option>
-                  {programs.map(p => <option key={p.id} value={p.id}>{programLabel(p)}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1 max-w-md">
+                <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium text-slate-700">
                     Select {preset.labels.participants}
                   </label>
@@ -827,7 +844,7 @@ export default function ReportsPage() {
                     Select all
                   </button>
                 </div>
-                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded max-w-md bg-white divide-y divide-slate-100">
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded bg-white divide-y divide-slate-100">
                   {participants.map(p => (
                     <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-sm hover:bg-slate-50">
                       <input
@@ -843,7 +860,7 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div>
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={generateCustomSheet}
                   disabled={customLoading}
@@ -851,6 +868,22 @@ export default function ReportsPage() {
                 >
                   {customLoading ? 'Generating...' : 'Generate Custom Sheet'}
                 </button>
+                {customData.length > 0 && (
+                  <>
+                    <button
+                      onClick={handleCustomCsv}
+                      className="rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      Print
+                    </button>
+                  </>
+                )}
               </div>
 
               {customError && (
@@ -860,47 +893,48 @@ export default function ReportsPage() {
               )}
             </div>
 
-            {customData.length > 0 && selectedCustomCourse && (
-              <div className="overflow-x-auto bg-white shadow rounded-lg">
-                <PrintHeader
-                  title={'Custom Master Sheet'}
-                  subtitle={programLabel(selectedCustomCourse)}
-                />
+            {customData.length > 0 && customCourseColumns.length > 0 && (
+              <div className="overflow-x-auto bg-white shadow rounded-lg print:overflow-visible print:shadow-none print:rounded-none">
+                <PrintHeader title={'Custom Master Sheet'} />
                 <table className="w-full text-sm text-left">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 print:bg-transparent print:border-b print:border-slate-300">
                     <tr>
                       <th className="px-4 py-3 font-medium min-w-[200px] border-r border-slate-200">Student</th>
-                      <th className="px-4 py-3 font-medium text-center border-r border-slate-200 min-w-[130px]">
-                        {selectedCustomCourse.name}
-                        {selectedCustomCourse.code && <div className="text-[10px] text-slate-400 font-normal">{selectedCustomCourse.code}</div>}
-                      </th>
+                      {customCourseColumns.map(c => (
+                        <th key={c.course_id} className="px-4 py-3 font-medium text-center border-r border-slate-200 min-w-[130px]">
+                          {c.course_name}
+                          {c.course_code && <div className="text-[10px] text-slate-400 font-normal">{c.course_code}</div>}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {customData.map(s => {
-                      const cd = s.courses[selectedCustomCourse.id]
-                      return (
-                        <tr key={s.student_id} className="hover:bg-slate-50">
-                          <td className="px-4 py-4 border-r border-slate-100 align-top">
-                            <div className="font-medium text-slate-900">{s.student_name}</div>
-                            <div className="text-xs text-slate-500">{s.system_id}</div>
-                            {s.external_id && <div className="text-[10px] text-slate-400">{s.external_id}</div>}
-                          </td>
-                          <td className="px-4 py-4 align-top">
-                            {cd ? (
-                              <div className="flex flex-col text-xs space-y-0.5">
-                                <div><span className="text-slate-500">Att:</span> <span className="font-medium text-slate-900">{cd.attendance_pct}%</span></div>
-                                <div><span className="text-slate-500">CA:</span> <span className="text-slate-900">{cd.ca_total ?? '-'}</span></div>
-                                <div><span className="text-slate-500">Exam:</span> <span className="text-slate-900">{cd.exam ?? '-'}</span></div>
-                                <div className="pt-1"><span className="text-slate-500">Total:</span> <span className="font-bold text-slate-900">{cd.total ?? '-'} ({cd.grade ?? '-'})</span></div>
-                              </div>
-                            ) : (
-                              <div className="text-xs text-slate-400">No data</div>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {customData.map(s => (
+                      <tr key={s.student_id} className="hover:bg-slate-50">
+                        <td className="px-4 py-4 border-r border-slate-100 align-top">
+                          <div className="font-medium text-slate-900">{s.student_name}</div>
+                          <div className="text-xs text-slate-500">{s.system_id}</div>
+                          {s.external_id && <div className="text-[10px] text-slate-400">{s.external_id}</div>}
+                        </td>
+                        {customCourseColumns.map(c => {
+                          const cd = s.courses[c.course_id]
+                          return (
+                            <td key={c.course_id} className="px-4 py-4 border-r border-slate-100 align-top">
+                              {cd ? (
+                                <div className="flex flex-col text-xs space-y-0.5">
+                                  <div><span className="text-slate-500">Att:</span> <span className="font-medium text-slate-900">{cd.attendance_pct}%</span></div>
+                                  <div><span className="text-slate-500">CA:</span> <span className="text-slate-900">{cd.ca_total ?? '-'}</span></div>
+                                  <div><span className="text-slate-500">Exam:</span> <span className="text-slate-900">{cd.exam ?? '-'}</span></div>
+                                  <div className="pt-1"><span className="text-slate-500">Total:</span> <span className="font-bold text-slate-900">{cd.total ?? '-'} ({cd.grade ?? '-'})</span></div>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-slate-400">-</div>
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
