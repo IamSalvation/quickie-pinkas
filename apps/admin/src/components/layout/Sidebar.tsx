@@ -50,7 +50,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
       ? [{ to: '/terms', label: preset.value === 'university' ? 'Semesters' : 'Terms', end: false }]
       : []),
     { to: '/reports', label: 'Reports', end: false },
-    { to: '/reports/custom', label: 'Custom Master Sheet', end: false },
     { to: '/messages', label: 'Messages', end: false, badge: unread },
     { to: '/settings', label: 'Settings', end: false },
     { to: '/billing', label: 'Billing', end: false },

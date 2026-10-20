@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getPreset } from '../../lib/presets'
 import { listPrograms, type Program } from '../../lib/api/programs'
 import { listContexts, type ContextWithProgram } from '../../lib/api/contexts'
+import { listParticipants, type Participant } from '../../lib/api/participants'
+import { supabase } from '../../lib/supabase'
 import {
   fetchMasterSheet,
   fetchSessionRegister,
@@ -18,7 +20,7 @@ import {
   type GradedReport,
 } from '../../lib/api/gradedReport'
 
-type Tab = 'master' | 'register' | 'grades'
+type Tab = 'master' | 'register' | 'grades' | 'custom'
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '-'
@@ -83,6 +85,26 @@ const METHOD_LABELS: Record<string, string> = {
   face_verified: 'Face',
 }
 
+// Types for Custom Master Sheet
+interface CustomCourseData {
+  course_id: string
+  course_name: string
+  course_code: string | null
+  attendance_pct: number
+  ca_total: number | null
+  exam: number | null
+  total: number | null
+  grade: string | null
+}
+
+interface CustomRow {
+  student_id: string
+  student_name: string
+  system_id: string
+  external_id: string | null
+  courses: Record<string, CustomCourseData>
+}
+
 export default function ReportsPage() {
   const { account } = useAuth()
   const preset = getPreset(account?.preset)
@@ -90,7 +112,9 @@ export default function ReportsPage() {
   const [tab, setTab] = useState<Tab>('master')
 
   const [programs, setPrograms] = useState<Program[]>([])
+  const [participants, setParticipants] = useState<Participant[]>([])
 
+  // Master State
   const [selectedProgramId, setSelectedProgramId] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
@@ -98,16 +122,25 @@ export default function ReportsPage() {
   const [masterLoading, setMasterLoading] = useState(false)
   const [masterError, setMasterError] = useState<string | null>(null)
 
+  // Register State
   const [contexts, setContexts] = useState<ContextWithProgram[]>([])
   const [selectedContextId, setSelectedContextId] = useState<string>('')
   const [registerRows, setRegisterRows] = useState<SessionRegisterRow[]>([])
   const [registerLoading, setRegisterLoading] = useState(false)
   const [registerError, setRegisterError] = useState<string | null>(null)
 
+  // Grades State
   const [gradesProgramId, setGradesProgramId] = useState<string>('')
   const [gradedReport, setGradedReport] = useState<GradedReport | null>(null)
   const [gradesLoading, setGradesLoading] = useState(false)
   const [gradesError, setGradesError] = useState<string | null>(null)
+
+  // Custom Master Sheet State
+  const [customCourseId, setCustomCourseId] = useState<string>('')
+  const [customStudentIds, setCustomStudentIds] = useState<string[]>([])
+  const [customData, setCustomData] = useState<CustomRow[]>([])
+  const [customLoading, setCustomLoading] = useState(false)
+  const [customError, setCustomError] = useState<string | null>(null)
 
   useEffect(() => {
     document.body.classList.remove('printing-badge')
@@ -115,11 +148,15 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!account) return
-    listPrograms(account.id, { status: 'all', limit: 200 }).then(({ data }) =>
+    listPrograms(account.id, { status: 'all', limit: 200 }).then(({ data }) => {
       setPrograms(data)
-    )
+      if (data.length > 0 && !customCourseId) setCustomCourseId(data[0].id)
+    })
     listContexts(account.id, { status: 'all', limit: 200 }).then(({ data }) =>
       setContexts(data)
+    )
+    listParticipants(account.id, { limit: 500 }).then(({ data }) =>
+      setParticipants(data)
     )
   }, [account])
 
@@ -184,6 +221,33 @@ export default function ReportsPage() {
     if (tab === 'grades' && gradesProgramId) loadGradedReport()
   }, [tab, gradesProgramId, loadGradedReport])
 
+  async function generateCustomSheet() {
+    if (!customCourseId || customStudentIds.length === 0) {
+      setCustomError('Select a course and at least one student.')
+      return
+    }
+    setCustomLoading(true)
+    setCustomError(null)
+
+    const { data, error: err } = await supabase.rpc('get_custom_master_sheet', {
+      p_student_ids: customStudentIds,
+      p_course_ids: [customCourseId],
+    })
+
+    if (err) {
+      setCustomError(err.message)
+      setCustomLoading(false)
+      return
+    }
+
+    setCustomData(data as CustomRow[])
+    setCustomLoading(false)
+  }
+
+  function toggleStudent(id: string) {
+    setCustomStudentIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
   function handleMasterCsv() {
     if (!masterSheet) return
     const csv = masterSheetToCsv(masterSheet)
@@ -208,6 +272,7 @@ export default function ReportsPage() {
   const selectedProgram = programs.find((p) => p.id === selectedProgramId)
   const gradesProgram = programs.find((p) => p.id === gradesProgramId)
   const selectedContext = contexts.find((c) => c.id === selectedContextId)
+  const selectedCustomCourse = programs.find((p) => p.id === customCourseId)
 
   return (
     <div className="p-4 sm:p-6">
@@ -251,6 +316,17 @@ export default function ReportsPage() {
             }
           >
             Grades
+          </button>
+          <button
+            onClick={() => setTab('custom')}
+            className={
+              'px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ' +
+              (tab === 'custom'
+                ? 'border-slate-900 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700')
+            }
+          >
+            Custom Master Sheet
           </button>
         </div>
 
@@ -386,8 +462,8 @@ export default function ReportsPage() {
                             v === 'P'
                               ? 'text-emerald-700 font-semibold'
                               : v === 'A'
-                              ? 'text-red-600 font-semibold'
-                              : 'text-slate-300'
+                                ? 'text-red-600 font-semibold'
+                                : 'text-slate-300'
                           return (
                             <td
                               key={c.id}
@@ -719,6 +795,117 @@ export default function ReportsPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Custom Master Sheet tab */}
+        {tab === 'custom' && (
+          <div>
+            <div className="mt-5 bg-white p-5 rounded-lg shadow mb-6 space-y-4 print:hidden">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Select {preset.labels.program}
+                </label>
+                <select
+                  value={customCourseId}
+                  onChange={(e) => setCustomCourseId(e.target.value)}
+                  className="block w-full max-w-md rounded border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Select a {preset.labels.program.toLowerCase()}...</option>
+                  {programs.map(p => <option key={p.id} value={p.id}>{programLabel(p)}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1 max-w-md">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Select {preset.labels.participants}
+                  </label>
+                  <button
+                    onClick={() => setCustomStudentIds(participants.map(p => p.id))}
+                    className="text-xs text-slate-500 hover:underline"
+                  >
+                    Select all
+                  </button>
+                </div>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded max-w-md bg-white divide-y divide-slate-100">
+                  {participants.map(p => (
+                    <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-sm hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={customStudentIds.includes(p.id)}
+                        onChange={() => toggleStudent(p.id)}
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-slate-900">{p.full_name}</span>
+                      <span className="text-xs text-slate-400 font-mono ml-auto">{p.system_id}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={generateCustomSheet}
+                  disabled={customLoading}
+                  className="rounded bg-slate-900 px-6 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {customLoading ? 'Generating...' : 'Generate Custom Sheet'}
+                </button>
+              </div>
+
+              {customError && (
+                <div className="rounded bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                  {customError}
+                </div>
+              )}
+            </div>
+
+            {customData.length > 0 && selectedCustomCourse && (
+              <div className="overflow-x-auto bg-white shadow rounded-lg">
+                <PrintHeader
+                  title={'Custom Master Sheet'}
+                  subtitle={programLabel(selectedCustomCourse)}
+                />
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 print:bg-transparent print:border-b print:border-slate-300">
+                    <tr>
+                      <th className="px-4 py-3 font-medium min-w-[200px] border-r border-slate-200">Student</th>
+                      <th className="px-4 py-3 font-medium text-center border-r border-slate-200 min-w-[130px]">
+                        {selectedCustomCourse.name}
+                        {selectedCustomCourse.code && <div className="text-[10px] text-slate-400 font-normal">{selectedCustomCourse.code}</div>}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {customData.map(s => {
+                      const cd = s.courses[selectedCustomCourse.id]
+                      return (
+                        <tr key={s.student_id} className="hover:bg-slate-50">
+                          <td className="px-4 py-4 border-r border-slate-100 align-top">
+                            <div className="font-medium text-slate-900">{s.student_name}</div>
+                            <div className="text-xs text-slate-500">{s.system_id}</div>
+                            {s.external_id && <div className="text-[10px] text-slate-400">{s.external_id}</div>}
+                          </td>
+                          <td className="px-4 py-4 align-top">
+                            {cd ? (
+                              <div className="flex flex-col text-xs space-y-0.5">
+                                <div><span className="text-slate-500">Att:</span> <span className="font-medium text-slate-900">{cd.attendance_pct}%</span></div>
+                                <div><span className="text-slate-500">CA:</span> <span className="text-slate-900">{cd.ca_total ?? '-'}</span></div>
+                                <div><span className="text-slate-500">Exam:</span> <span className="text-slate-900">{cd.exam ?? '-'}</span></div>
+                                <div className="pt-1"><span className="text-slate-500">Total:</span> <span className="font-bold text-slate-900">{cd.total ?? '-'} ({cd.grade ?? '-'})</span></div>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-400">No data</div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
