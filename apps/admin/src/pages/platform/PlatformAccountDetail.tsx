@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { getPreset } from '../../lib/presets'
 import {
   getAccountDetail,
   approveAccount,
@@ -319,9 +320,9 @@ export default function PlatformAccountDetail() {
           {academicStats ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded border border-slate-200 bg-slate-50 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Groups</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">{getPreset(detail.account.preset).labels.groups}</div>
                 <div className="mt-1 text-2xl font-semibold text-slate-900">{academicStats.groups_count}</div>
-                <div className="mt-0.5 text-xs text-slate-500">Classes / Departments</div>
+                <div className="mt-0.5 text-xs text-slate-500">{getPreset(detail.account.preset).label}</div>
               </div>
               <div className="rounded border border-slate-200 bg-slate-50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Terms</div>
@@ -406,7 +407,7 @@ export default function PlatformAccountDetail() {
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-xs text-slate-500">{records.length} record{records.length !== 1 ? 's' : ''}</span>
-                      <span className="text-slate-400 group-open:-rotate-180 transition-transform">▼</span>
+                      <span className="text-slate-400 group-open:-rotate-180 transition-transform">Ã¢â€“Â¼</span>
                     </div>
                   </summary>
                   <div className="border-t border-slate-200 p-4 bg-white">
