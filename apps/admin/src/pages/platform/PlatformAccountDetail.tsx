@@ -140,7 +140,7 @@ export default function PlatformAccountDetail() {
           &lt;- Back to Customers
         </Link>
 
-        <div className="mt-3 flex items-start justify-between gap-3">
+        <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
               {detail?.account.name ?? 'Loading...'}
@@ -169,8 +169,7 @@ export default function PlatformAccountDetail() {
 
         {detail && (
           <>
-            {/* Status Actions */}
-            <div className="mt-6 flex flex-wrap gap-2">
+            <div className="mt-6 sm:mt-0 flex flex-wrap gap-2 sm:ml-auto justify-end">
               {detail.account.status === 'pending' && (
                 <button
                   onClick={() => runAction(() => approveAccount(detail.account.id), 'Approve this account?')}
