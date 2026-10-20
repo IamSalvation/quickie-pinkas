@@ -268,6 +268,7 @@ export async function addManualAttendance(
       mode: 'in_person',
       status: 'present',
       checked_in_at: new Date().toISOString(),
+      checked_out_at: new Date().toISOString(), // Auto-checkout for manual overrides
       verified: true,
       manually_added: true,
       added_by: operatorId,

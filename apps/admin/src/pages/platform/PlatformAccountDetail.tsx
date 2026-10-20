@@ -374,7 +374,7 @@ export default function PlatformAccountDetail() {
           <div>
             <h2 className="text-sm font-medium text-slate-900">Manual Attendance Audit</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              The last 50 attendance records manually added by this school.
+              Manual check-ins grouped by session.
             </p>
           </div>
           <button
@@ -388,49 +388,62 @@ export default function PlatformAccountDetail() {
           {manualOverrides.length === 0 ? (
             <p className="text-sm text-slate-500">No manual overrides found.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Date</th>
-                    <th className="px-3 py-2 font-medium">Student</th>
-                    <th className="px-3 py-2 font-medium">Session</th>
-                    <th className="px-3 py-2 font-medium">Reason</th>
-                    <th className="px-3 py-2 font-medium text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {manualOverrides.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 text-slate-600">
-                        {new Date(r.checked_in_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-2 text-slate-900">
-                        {r.participant?.full_name ?? '-'}
-                        <span className="ml-1 text-xs text-slate-400">
-                          ({r.participant?.system_id})
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {r.context?.label ?? '-'} 
-                        {r.occurrence?.session_number && ` (Wk ${r.occurrence.session_number})`}
-                      </td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {r.added_reason ?? '-'}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          onClick={() => handleDeleteManual(r.id)}
-                          disabled={deletingId === r.id}
-                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {Object.entries(
+                manualOverrides.reduce((acc, r) => {
+                  const sessionName = r.context?.label || 'Unknown Session';
+                  const week = r.occurrence?.session_number ? `Week ${r.occurrence.session_number}` : 'Unknown Week';
+                  const key = `${sessionName} - ${week}`;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(r);
+                  return acc;
+                }, {} as Record<string, typeof manualOverrides>)
+              ).map(([groupKey, records]) => (
+                <details key={groupKey} className="group border border-slate-200 rounded-md bg-white open:bg-slate-50">
+                  <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none">
+                    <div className="font-medium text-sm text-slate-900">
+                      {groupKey}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-slate-500">{records.length} record{records.length !== 1 ? 's' : ''}</span>
+                      <span className="text-slate-400 group-open:-rotate-180 transition-transform">▼</span>
+                    </div>
+                  </summary>
+                  <div className="border-t border-slate-200 p-4 bg-white">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-100">
+                        <tr>
+                          <th className="pb-2 font-medium">Date</th>
+                          <th className="pb-2 font-medium">Student</th>
+                          <th className="pb-2 font-medium">Reason</th>
+                          <th className="pb-2 font-medium text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {records.map((r) => (
+                          <tr key={r.id}>
+                            <td className="py-2 text-slate-600">{new Date(r.checked_in_at).toLocaleDateString()}</td>
+                            <td className="py-2 text-slate-900">
+                              {r.participant?.full_name ?? '-'}
+                              <span className="ml-1 text-xs text-slate-400">({r.participant?.system_id})</span>
+                            </td>
+                            <td className="py-2 text-slate-600">{r.added_reason ?? '-'}</td>
+                            <td className="py-2 text-right">
+                              <button
+                                onClick={() => handleDeleteManual(r.id)}
+                                disabled={deletingId === r.id}
+                                className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              ))}
             </div>
           )}
         </div>
