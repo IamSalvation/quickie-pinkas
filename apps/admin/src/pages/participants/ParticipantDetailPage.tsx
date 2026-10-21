@@ -5,6 +5,7 @@ import { getPreset } from '../../lib/presets'
 import {
   getParticipant,
   deleteParticipant,
+  updateParticipant,
   type Participant,
 } from '../../lib/api/participants'
 import {
@@ -31,6 +32,10 @@ export default function ParticipantDetailPage() {
 
   const [participant, setParticipant] = useState<Participant | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editExternalId, setEditExternalId] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
 
@@ -239,6 +244,29 @@ export default function ParticipantDetailPage() {
     setShowPhotoCapture(false)
   }
 
+  function startEdit() {
+    if (!participant) return
+    setEditName(participant.full_name)
+    setEditExternalId(participant.external_id ?? '')
+    setIsEditing(true)
+  }
+
+  async function saveEdit() {
+    if (!participant) return
+    setSavingEdit(true)
+    const { error: err } = await updateParticipant(participant.id, {
+      full_name: editName,
+      external_id: editExternalId || null,
+    })
+    setSavingEdit(false)
+    if (err) {
+      alert(err)
+      return
+    }
+    setParticipant({ ...participant, full_name: editName, external_id: editExternalId || null })
+    setIsEditing(false)
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -301,6 +329,31 @@ export default function ParticipantDetailPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {!isEditing ? (
+                <button
+                  onClick={startEdit}
+                  className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                  Edit Details
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={saveEdit}
+                    disabled={savingEdit || !editName.trim()}
+                    className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {savingEdit ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    disabled={savingEdit}
+                    className="rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
               <button
                 onClick={handlePrint}
                 className="rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
@@ -329,9 +382,18 @@ export default function ParticipantDetailPage() {
               <dl className="mt-3 space-y-3 text-sm">
                 <div>
                   <dt className="text-slate-500">Full name</dt>
-                  <dd className="mt-0.5 text-slate-900">
-                    {participant.full_name}
-                  </dd>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm focus:border-slate-500 focus:outline-none"
+                    />
+                  ) : (
+                    <dd className="mt-0.5 text-slate-900">
+                      {participant.full_name}
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-slate-500">
@@ -343,11 +405,20 @@ export default function ParticipantDetailPage() {
                 </div>
                 <div>
                   <dt className="text-slate-500">External ID</dt>
-                  <dd className="mt-0.5 text-slate-900">
-                    {participant.external_id ?? (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </dd>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editExternalId}
+                      onChange={(e) => setEditExternalId(e.target.value)}
+                      className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm focus:border-slate-500 focus:outline-none"
+                    />
+                  ) : (
+                    <dd className="mt-0.5 text-slate-900">
+                      {participant.external_id ?? (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-slate-500">{preset.labels.group}</dt>
