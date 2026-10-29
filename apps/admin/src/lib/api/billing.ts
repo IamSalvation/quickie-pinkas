@@ -50,11 +50,17 @@ export async function initializeCheckout(
     body.event_end_date = eventEndDate
   }
 
+  // Explicitly get a fresh session to avoid stale tokens after downgrade
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+  if (sessionError || !session) {
+    return { data: null, error: 'Your session expired. Please sign out and sign back in.' }
+  }
+
   const res = await fetch(supabaseUrl + '/functions/v1/paystack-initialize', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + token,
+      Authorization: 'Bearer ' + session.access_token,
       apikey: anonKey,
     },
     body: JSON.stringify(body),
