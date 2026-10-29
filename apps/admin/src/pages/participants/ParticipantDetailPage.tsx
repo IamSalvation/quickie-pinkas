@@ -154,7 +154,7 @@ export default function ParticipantDetailPage() {
 
   function handleCopyLink() {
     if (!participant) return
-    const url = window.location.origin + '/s/' + participant.system_id
+    const url = (import.meta.env.VITE_APP_URL || window.location.origin) + '/s/' + participant.system_id
     navigator.clipboard.writeText(url).then(
       () => alert('Student record link copied:\n\n' + url),
       () => alert('Copy failed. Link:\n\n' + url)
