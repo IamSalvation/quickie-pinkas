@@ -57,7 +57,7 @@ export default function LoginPage() {
         </div>
 
         {/* Main Content Area: Pushes Form to the Left */}
-        <div className="flex-1 flex items-center justify-start px-6 lg:pl-24 xl:pl-40 pb-16">
+        <div className="flex-1 flex items-center justify-center px-6 pb-16">
 
           {/* THE FROSTED GLASS CARD */}
           <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-8">
@@ -104,7 +104,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   className="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white/70"
                 />
               </div>
