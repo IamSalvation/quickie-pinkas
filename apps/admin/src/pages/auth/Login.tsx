@@ -42,10 +42,9 @@ export default function LoginPage() {
       {/* LAYER 2: UI Content */}
       <div className="relative z-10 flex flex-col min-h-screen">
 
-        {/* Header: Logo */}
+        {/* Header: Logo & Signup Link */}
         <div className="flex justify-between items-center p-6 sm:p-8">
           <div className="flex items-center gap-2">
-            {/* Using your existing logo. If it's dark, it might be hard to see on the dark background. */}
             <img src="/logo.png" alt="Quickie Pinkas" className="h-9 w-auto" />
           </div>
           <Link
@@ -56,7 +55,7 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* Main Content Area: Pushes Form to the Left */}
+        {/* Main Content Area: Form Centered */}
         <div className="flex-1 flex items-center justify-center px-6 pb-16">
 
           {/* THE FROSTED GLASS CARD */}
@@ -104,7 +103,6 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   className="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white/70"
                 />
               </div>
