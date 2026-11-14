@@ -8,6 +8,13 @@ import ErrorBoundary from './components/ErrorBoundary'
 import GraceBanner from './components/layout/GraceBanner'
 import LockedScreen from './components/layout/LockedScreen'
 import Login from './pages/auth/Login'
+import TermsPage from './pages/public/TermsPage'
+import PrivacyPage from './pages/public/PrivacyPage'
+import HelpPage from './pages/public/HelpPage'
+import ApiDocsPage from './pages/public/ApiDocsPage'
+import StatusPage from './pages/public/StatusPage'
+import CookiesPage from './pages/public/CookiesPage'
+import AboutPage from './pages/public/AboutPage'
 import Signup from './pages/auth/Signup'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import ResetPasswordPage from './pages/auth/ResetPasswordPage'
@@ -30,7 +37,6 @@ import CaComponentsPage from './pages/grades/CaComponentsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import BillingPage from './pages/billing/BillingPage'
 import BillingCallbackPage from './pages/billing/BillingCallbackPage'
-import TermsPage from './pages/terms/TermsPage'
 import StudentRecordPage from './pages/public/StudentRecordPage'
 import MessagesPage from './pages/messages/MessagesPage'
 import PlatformRoute from './pages/platform/PlatformRoute'
@@ -85,12 +91,10 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/pending" replace />
   }
 
-  // Locked: full-page lock screen, no children rendered
   if (accessState === 'locked') {
     return <LockedScreen />
   }
 
-  // Grace: banner on top, children still render (read-only enforcement is per-page)
   if (accessState === 'grace') {
     return (
       <div className="flex h-[100dvh] flex-col">
@@ -103,7 +107,6 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
     )
   }
 
-  // Active: normal render
   return <>{children}</>
 }
 
@@ -160,6 +163,15 @@ function AppRoutes() {
       />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+      {/* PUBLIC STATIC PAGES */}
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/help" element={<HelpPage />} />
+      <Route path="/api-docs" element={<ApiDocsPage />} />
+      <Route path="/status" element={<StatusPage />} />
+      <Route path="/cookies" element={<CookiesPage />} />
+      <Route path="/about" element={<AboutPage />} />
+
       <Route path="/pending" element={<PendingRoute />} />
 
       <Route path="/kiosk/setup/:token" element={<KioskSetupPage />} />
@@ -191,7 +203,6 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardHome />} />
         <Route path="/participants" element={<ParticipantsPage />} />
         <Route path="/groups" element={<GroupsPage />} />
-        <Route path="/terms" element={<TermsPage />} />
         <Route path="/participants/print" element={<PrintBadgesPage />} />
         <Route path="/participants/:id" element={<ParticipantDetailPage />} />
         <Route path="/programs" element={<ProgramsPage />} />

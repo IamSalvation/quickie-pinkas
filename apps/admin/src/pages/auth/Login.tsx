@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import PublicFooter from '../../components/layout/PublicFooter'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -35,14 +36,13 @@ export default function LoginPage() {
           alt="Pinkas Background"
           className="w-full h-full object-cover"
         />
-        {/* The dark tint for readability */}
         <div className="absolute inset-0 bg-slate-900/70" />
       </div>
 
       {/* LAYER 2: UI Content */}
       <div className="relative z-10 flex flex-col min-h-screen">
 
-        {/* Header: Logo & Signup Link */}
+        {/* Header */}
         <div className="flex justify-between items-center p-6 sm:p-8">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Quickie Pinkas" className="h-9 w-auto" />
@@ -56,9 +56,8 @@ export default function LoginPage() {
         </div>
 
         {/* Main Content Area: Form Centered */}
-        <div className="flex-1 flex items-center justify-center px-6 pb-16">
+        <div className="flex-1 flex items-center justify-center px-6 pb-12">
 
-          {/* THE FROSTED GLASS CARD */}
           <div className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-8">
 
             <div className="text-center mb-8">
@@ -124,6 +123,9 @@ export default function LoginPage() {
             </p>
           </div>
         </div>
+
+        {/* Footer */}
+        <PublicFooter />
       </div>
     </div>
   )
