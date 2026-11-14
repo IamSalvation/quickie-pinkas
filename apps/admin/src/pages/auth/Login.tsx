@@ -45,7 +45,11 @@ export default function LoginPage() {
         {/* Header */}
         <div className="flex justify-between items-center p-6 sm:p-8">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Quickie Pinkas" className="h-9 w-auto" />
+            <img
+              src="/logo.png"
+              alt="Quickie Pinkas"
+              className="h-9 w-auto rounded-lg"
+            />
           </div>
           <Link
             to="/signup"
