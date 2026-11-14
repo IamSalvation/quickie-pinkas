@@ -11,7 +11,6 @@ import Login from './pages/auth/Login'
 import TermsPage from './pages/public/TermsPage'
 import PrivacyPage from './pages/public/PrivacyPage'
 import HelpPage from './pages/public/HelpPage'
-import ApiDocsPage from './pages/public/ApiDocsPage'
 import StatusPage from './pages/public/StatusPage'
 import CookiesPage from './pages/public/CookiesPage'
 import AboutPage from './pages/public/AboutPage'
@@ -167,7 +166,6 @@ function AppRoutes() {
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/help" element={<HelpPage />} />
-      <Route path="/api-docs" element={<ApiDocsPage />} />
       <Route path="/status" element={<StatusPage />} />
       <Route path="/cookies" element={<CookiesPage />} />
       <Route path="/about" element={<AboutPage />} />
